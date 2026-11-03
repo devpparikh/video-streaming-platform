@@ -14,24 +14,20 @@ class SyncVideoRepository:
         self._client: Any = open_dynamodb_client_sync(settings)
         self._table = settings.dynamodb_video_table
 
-    def claim_for_processing(
-        self, video_key: str, locked_until: str, updated_at: str
-    ) -> bool:
+    def claim_for_processing(self, video_key: str, locked_until: str, updated_at: str) -> bool:
         try:
             self._client.update_item(
                 TableName=self._table,
                 Key={"video_key": {"S": video_key}},
                 UpdateExpression="SET #s = :processing, locked_until = :lu, updated_at = :ua",
-                ConditionExpression=(
-                    "#s = :queued OR (#s = :processing AND locked_until < :now)"
-                ),
+                ConditionExpression=("#s = :queued OR (#s = :processing AND locked_until < :now)"),
                 ExpressionAttributeNames={"#s": "status"},
                 ExpressionAttributeValues={
                     ":processing": {"S": VideoStatus.PROCESSING},
-                    ":queued":     {"S": VideoStatus.QUEUED},
-                    ":lu":         {"S": locked_until},
-                    ":now":        {"S": updated_at},
-                    ":ua":         {"S": updated_at},
+                    ":queued": {"S": VideoStatus.QUEUED},
+                    ":lu": {"S": locked_until},
+                    ":now": {"S": updated_at},
+                    ":ua": {"S": updated_at},
                 },
             )
             return True
@@ -48,8 +44,8 @@ class SyncVideoRepository:
             ConditionExpression="#s = :processing",
             ExpressionAttributeNames={"#s": "status"},
             ExpressionAttributeValues={
-                ":lu":         {"S": locked_until},
-                ":ua":         {"S": updated_at},
+                ":lu": {"S": locked_until},
+                ":ua": {"S": updated_at},
                 ":processing": {"S": VideoStatus.PROCESSING},
             },
         )
@@ -63,7 +59,7 @@ class SyncVideoRepository:
             ExpressionAttributeNames={"#s": "status"},
             ExpressionAttributeValues={
                 ":queued": {"S": VideoStatus.QUEUED},
-                ":ua":     {"S": updated_at},
+                ":ua": {"S": updated_at},
             },
         )
 
@@ -85,8 +81,8 @@ class SyncVideoRepository:
             ),
             ExpressionAttributeNames={"#s": "status"},
             ExpressionAttributeValues={
-                ":s":   {"S": VideoStatus.READY},
-                ":ua":  {"S": updated_at},
+                ":s": {"S": VideoStatus.READY},
+                ":ua": {"S": updated_at},
                 ":res": {"L": [{"S": r} for r in resolutions]},
                 ":dur": {"N": str(duration_seconds)},
             },
@@ -104,7 +100,7 @@ class SyncVideoRepository:
         expr = "SET #s = :s, updated_at = :ua REMOVE locked_until"
         names: dict[str, str] = {"#s": "status"}
         values: dict[str, Any] = {
-            ":s":  {"S": status},
+            ":s": {"S": status},
             ":ua": {"S": updated_at},
         }
         if error_message is not None:

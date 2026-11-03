@@ -1,36 +1,29 @@
-# Terraform — LocalStack S3
+# Terraform — AWS resources
 
-Provisions the S3 bucket(s) used by StreamForge against
-[LocalStack](https://localstack.cloud/). Applied with **`tflocal`**, a thin
-wrapper around Terraform that auto-configures the AWS provider to talk to
-LocalStack (endpoints, path-style addressing, dummy credentials).
+Provisions the S3 bucket and DynamoDB table StreamForge needs on **real AWS**.
+
+For local development you don't need this: `docker compose up` runs a local
+emulator and the `aws-init` service creates the same resources with
+[`backend/scripts/init_aws.py`](../../backend/scripts/init_aws.py).
 
 ## Prerequisites
 
-1. LocalStack running (started by `docker compose up localstack`).
-2. Terraform >= 1.6.
-3. `tflocal` installed:
-
-   ```bash
-   pip install terraform-local
-   ```
+1. Terraform >= 1.6.
+2. AWS credentials configured (`aws configure`, environment variables, or SSO).
 
 ## Usage
 
 Run from `infra/terraform/`:
 
 ```bash
-tflocal init
-tflocal plan
-tflocal apply
+cp terraform.tfvars.example terraform.tfvars   # optional: names, region, CORS origins
+terraform init
+terraform plan
+terraform apply
 ```
 
-`tflocal` proxies every command to `terraform`, so all normal flags work
-(`tflocal apply -auto-approve`, `tflocal destroy`, etc.).
-
-> If you run tflocal from inside the compose network instead of the host,
-> set `localstack_endpoint = "http://localstack:4566"` and export
-> `LOCALSTACK_HOST=localstack`.
+Set `cors_allowed_origins` to your frontend's origin. Then point the backend at
+AWS as described in the [root README](../../README.md#deploying-to-real-aws).
 
 ## What it creates
 
@@ -38,55 +31,37 @@ tflocal apply
 |----------|---------|
 | `aws_s3_bucket.videos` | Raw uploads + transcoded DASH output |
 | `aws_s3_bucket_versioning` | Guards against accidental overwrites |
-| `aws_s3_bucket_cors_configuration` | Lets dash.js fetch segments with range requests |
-| `aws_s3_bucket_public_access_block` | Keeps the bucket private |
+| `aws_s3_bucket_cors_configuration` | Lets the browser PUT upload parts and read ETags |
+| `aws_s3_bucket_public_access_block` | Keeps the bucket private (segments are served through the API) |
 | `aws_dynamodb_table.video_metadata` | Source-of-truth metadata per video |
-| `aws_dynamodb_table.processing_jobs` | One item per transcode attempt |
 
 ### DynamoDB key design
 
-**`video-metadata`** — unique-keyed item store:
+**`video-metadata`**:
 
 | Key | Attribute | Type | Why |
 |-----|-----------|------|-----|
 | PK | `video_key` | S | uuid4 hex; single-item `GET /videos/{key}` |
 | GSI `category-created_at-index` PK | `category` | S | browse by category |
-| GSI ... SK | `created_at` | S (ISO 8601) | newest-first within a category |
+| GSI `visibility-created_at-index` PK | `visibility` | S | the full feed, excluding hidden videos |
+| both GSIs, SK | `created_at` | S (ISO 8601) | newest first |
 
 > No base-table sort key on purpose — `video_key` is already unique, so a
-> range key would be artificial. Sorted browse lives on the GSI.
+> range key would be artificial. Sorted browsing lives on the GSIs.
 
-**`processing-jobs`** — composite key (a video can have multiple attempts):
-
-| Key | Attribute | Type | Why |
-|-----|-----------|------|-----|
-| PK | `video_key` | S | all jobs for a video |
-| SK | `job_id` | S | a specific attempt |
-| GSI `status-created_at-index` PK | `status` | S | find queued/processing/failed jobs |
-| GSI ... SK | `created_at` | S (ISO 8601) | chronological within a status |
-
-Both tables use `PAY_PER_REQUEST` (on-demand) billing — no capacity planning,
-and fully supported by LocalStack. Non-key attributes (title, status, duration,
-resolutions, error, …) are schemaless and not declared in Terraform.
-
-## Verify
-
-```bash
-awslocal s3 ls
-awslocal s3 ls s3://videos
-awslocal dynamodb list-tables
-```
+The table uses `PAY_PER_REQUEST` (on-demand) billing, so there's no capacity
+planning. Non-key attributes (title, status, duration, resolutions, error, …)
+are schemaless and not declared in Terraform.
 
 ## Outputs
 
 - `videos_bucket_name` — bucket name for app config.
-- `s3_endpoint` — endpoint apps should use to reach S3.
+- `video_metadata_table` — DynamoDB table name.
 
 ## Notes
 
-- State is local (`terraform.tfstate`) and git-ignored — fine for ephemeral
-  LocalStack dev. LocalStack state does not persist across `docker compose down`
-  unless `PERSISTENCE=1` (already set in compose), so you may need to re-apply
-  after a full teardown.
-- `provider.tf` is intentionally minimal; do not add `endpoints {}` blocks —
-  tflocal generates them.
+- State is local (`terraform.tfstate`) and git-ignored. Use a remote backend
+  (S3 + DynamoDB lock table) if more than one person applies.
+- `provider.tf` sets `s3_use_path_style = true`, which real S3 still accepts.
+  The same files also work against a local emulator with
+  [`tflocal`](https://github.com/localstack/terraform-local).

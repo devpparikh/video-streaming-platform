@@ -5,6 +5,7 @@ from app.repositories.video_repository import VideoRecord
 
 class VideoSummary(BaseModel):
     """Public listing shape — omits internal fields (upload_id, lease, etc.)."""
+
     video_key: str
     title: str
     category: str
@@ -16,9 +17,7 @@ class VideoSummary(BaseModel):
     poster_path: str | None = None
 
     @classmethod
-    def from_record(
-        cls, record: VideoRecord, *, poster_path: str | None = None
-    ) -> "VideoSummary":
+    def from_record(cls, record: VideoRecord, *, poster_path: str | None = None) -> "VideoSummary":
         return cls(
             video_key=record.video_key,
             title=record.title,
@@ -33,6 +32,7 @@ class VideoSummary(BaseModel):
 
 class VideoDetail(BaseModel):
     """Full metadata for the detail page. Still omits internal upload fields."""
+
     video_key: str
     title: str
     category: str

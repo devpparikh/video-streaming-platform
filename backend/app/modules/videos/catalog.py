@@ -63,12 +63,11 @@ class VideoCatalogService:
                 cursor=cursor,
             )
         except ValueError as exc:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
         return VideoListData(
             items=[
-                VideoSummary.from_record(r, poster_path=self._poster_path(r))
-                for r in page.items
+                VideoSummary.from_record(r, poster_path=self._poster_path(r)) for r in page.items
             ],
             next_cursor=page.next_cursor,
         )
@@ -104,9 +103,7 @@ class VideoCatalogService:
         # The predefined catalog, not a scan of stored data.
         return CategoryListData(categories=list(get_allowed_categories()))
 
-    async def set_visibility(
-        self, video_key: str, visibility: str
-    ) -> VideoVisibilityData:
+    async def set_visibility(self, video_key: str, visibility: str) -> VideoVisibilityData:
         """Soft delete (inactive) or restore (active)."""
         found = await self._video_repo.set_visibility(video_key, visibility, _now())
         if not found:
@@ -142,15 +139,11 @@ class VideoCatalogService:
                 kwargs["ContinuationToken"] = token
             listing = await self._s3.list_objects_v2(**kwargs)
 
-            objects: list["ObjectIdentifierTypeDef"] = [
-                {"Key": key}
-                for o in listing.get("Contents", [])
-                if (key := o.get("Key"))
+            objects: list[ObjectIdentifierTypeDef] = [
+                {"Key": key} for o in listing.get("Contents", []) if (key := o.get("Key"))
             ]
             if objects:
-                await self._s3.delete_objects(
-                    Bucket=bucket, Delete={"Objects": objects}
-                )
+                await self._s3.delete_objects(Bucket=bucket, Delete={"Objects": objects})
 
             if listing.get("IsTruncated"):
                 token = listing.get("NextContinuationToken")

@@ -645,7 +645,7 @@ All settings are defined in `app/core/config.py` and loaded from environment var
 | `aws_access_key_id` | string | **(required)** | AWS credentials (fail-fast if missing) |
 | `aws_secret_access_key` | string | **(required)** | AWS credentials (fail-fast if missing) |
 | `s3_bucket` | string | `videos` | S3 bucket name |
-| `s3_use_path_style` | bool | `True` | S3 addressing style (path-style for LocalStack, virtual-hosted for real AWS) |
+| `s3_use_path_style` | bool | `True` | S3 addressing style (path-style for the local emulator, virtual-hosted for real AWS) |
 | | | | |
 | **DynamoDB** | | | |
 | `aws_dynamodb_endpoint_url` | string | `http://localhost:4566` | DynamoDB endpoint. Empty → real AWS |
@@ -668,13 +668,13 @@ All settings are defined in `app/core/config.py` and loaded from environment var
 | `worker_lease_seconds` | int | `600` (10 min) | Job lease duration |
 | `worker_lease_renew_interval` | int | `120` (2 min) | How often to renew the lease |
 
-### Production vs. LocalStack
+### Production vs. local emulator
 
-**LocalStack (development):**
+**Local emulator (development, compose service `aws`):**
 ```bash
-aws_endpoint_url=http://localstack:4566
-aws_public_endpoint_url=http://localstack:4566  # browser reachable in compose
-aws_dynamodb_endpoint_url=http://localstack:4566
+aws_endpoint_url=http://aws:4566                # server-side, inside compose
+aws_public_endpoint_url=http://localhost:4566   # browser-reachable, for presigned URLs
+aws_dynamodb_endpoint_url=http://aws:4566
 s3_use_path_style=true
 ```
 
@@ -704,7 +704,7 @@ Starts:
 - **Backend**: http://localhost:8000 (uvicorn with reload)
 - **Frontend**: http://localhost:5173 (Vite dev server)
 - **Redis**: localhost:6379 (Celery broker + result backend)
-- **LocalStack**: localhost:4566 (S3 + DynamoDB)
+- **AWS emulator** (moto server): localhost:4566 (S3 + DynamoDB); `aws-init` creates the bucket + table
 - **Celery Worker**: processes videos (no exposed port)
 
 All services read from `backend/.env` and `backend/.env.example`.
@@ -717,8 +717,8 @@ Start dependencies separately:
 # Terminal 1: Redis
 redis-server
 
-# Terminal 2: LocalStack (optional, or use real AWS)
-localstack start
+# Terminal 2: AWS emulator + bucket/table provisioning (or use real AWS)
+docker compose up aws aws-init -d
 
 # Terminal 3: Backend (from backend/ directory)
 export PYTHONPATH=.
@@ -904,6 +904,6 @@ The backend is a FastAPI service for video uploads, transcoding, and streaming, 
 - **Transcoding:** Async Celery with lease-based claim semantics
 - **Catalog:** DynamoDB with soft/hard delete, category and full-feed browsing
 - **Streaming:** DASH manifests + segments with range-request support
-- **Configuration:** Environment-driven; LocalStack-friendly for dev, AWS-ready for prod
+- **Configuration:** Environment-driven; runs on a local AWS emulator for dev, AWS-ready for prod
 
 All code is typed, tested (partial coverage so far), and follows immutability and atomicity patterns for safe concurrency.

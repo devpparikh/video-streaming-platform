@@ -55,8 +55,10 @@ def probe_video(input_path: Path, ffprobe_path: str) -> ProbeResult:
     """Read source height, duration, and audio presence via ffprobe."""
     cmd = [
         ffprobe_path,
-        "-v", "quiet",
-        "-print_format", "json",
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
         "-show_streams",
         "-show_format",
         str(input_path),
@@ -107,8 +109,10 @@ def build_dash_command(
     cmd += ["-c:v", "libx264", "-preset", "veryfast"]
     for i, rung in enumerate(rungs):
         cmd += [
-            f"-b:v:{i}", rung.video_bitrate,
-            f"-s:v:{i}", f"{rung.width}x{rung.height}",
+            f"-b:v:{i}",
+            rung.video_bitrate,
+            f"-s:v:{i}",
+            f"{rung.width}x{rung.height}",
         ]
 
     if has_audio:
@@ -118,10 +122,14 @@ def build_dash_command(
         adaptation = "id=0,streams=v"
 
     cmd += [
-        "-use_timeline", "1",
-        "-use_template", "1",
-        "-adaptation_sets", adaptation,
-        "-f", "dash",
+        "-use_timeline",
+        "1",
+        "-use_template",
+        "1",
+        "-adaptation_sets",
+        adaptation,
+        "-f",
+        "dash",
         str(output_dir / DASH_MANIFEST_NAME),
     ]
     return cmd
@@ -140,11 +148,15 @@ def run_transcode(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cmd = build_dash_command(
-        input_path, output_dir, rungs,
-        has_audio=probe.has_audio, ffmpeg_path=ffmpeg_path,
+        input_path,
+        output_dir,
+        rungs,
+        has_audio=probe.has_audio,
+        ffmpeg_path=ffmpeg_path,
     )
-    logger.info("transcoding %s → %d rung(s): %s",
-                input_path.name, len(rungs), [r.label for r in rungs])
+    logger.info(
+        "transcoding %s → %d rung(s): %s", input_path.name, len(rungs), [r.label for r in rungs]
+    )
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:

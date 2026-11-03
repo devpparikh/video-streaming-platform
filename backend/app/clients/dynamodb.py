@@ -7,7 +7,6 @@ regional DynamoDB endpoint. Nothing else changes.
 """
 
 from contextlib import AsyncExitStack
-from functools import lru_cache
 from typing import Any
 
 import aioboto3
@@ -37,6 +36,7 @@ async def open_dynamodb_client(stack: AsyncExitStack) -> AioBaseClient:
 def open_dynamodb_client_sync(settings: Settings) -> Any:
     """Synchronous DynamoDB client for Celery workers (boto3)."""
     import boto3
+
     return boto3.client(
         "dynamodb",
         endpoint_url=settings.aws_dynamodb_endpoint_url or None,

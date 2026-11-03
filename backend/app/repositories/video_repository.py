@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any
 
 from botocore.exceptions import ClientError
-
 from fastapi import Depends, Request
 from pydantic import BaseModel
 
@@ -68,6 +67,7 @@ class VideoRecord(BaseModel):
 @dataclass(frozen=True)
 class VideoPage:
     """One page of list results. ``next_cursor`` is None when fully consumed."""
+
     items: list[VideoRecord]
     next_cursor: str | None
 
@@ -138,9 +138,7 @@ class VideoRepository:
             Key={"video_key": {"S": video_key}},
         )
 
-    async def set_visibility(
-        self, video_key: str, visibility: str, updated_at: str
-    ) -> bool:
+    async def set_visibility(self, video_key: str, visibility: str, updated_at: str) -> bool:
         """Soft-delete toggle: set active/inactive. False if the video is gone."""
         try:
             await self._dynamo.update_item(
@@ -176,13 +174,9 @@ class VideoRepository:
         """
         start_key = _decode_cursor(cursor)
         if category:
-            response = await self._query_by_category(
-                category, status, visibility, limit, start_key
-            )
+            response = await self._query_by_category(category, status, visibility, limit, start_key)
         else:
-            response = await self._query_by_visibility(
-                visibility, status, limit, start_key
-            )
+            response = await self._query_by_visibility(visibility, status, limit, start_key)
 
         items = [_deserialize(i) for i in response.get("Items", [])]
         return VideoPage(
@@ -228,7 +222,7 @@ class VideoRepository:
 
     async def _query_by_visibility(
         self, visibility: str, status: str | None, limit: int, start_key: dict | None
-    ) :
+    ):
         kwargs: dict[str, Any] = {
             "TableName": self._table,
             "IndexName": VISIBILITY_INDEX,
@@ -258,16 +252,14 @@ class VideoRepository:
                 TableName=self._table,
                 Key={"video_key": {"S": video_key}},
                 UpdateExpression="SET #s = :processing, locked_until = :lu, updated_at = :ua",
-                ConditionExpression=(
-                    "#s = :queued OR (#s = :processing AND locked_until < :now)"
-                ),
+                ConditionExpression=("#s = :queued OR (#s = :processing AND locked_until < :now)"),
                 ExpressionAttributeNames={"#s": "status"},
                 ExpressionAttributeValues={
                     ":processing": {"S": VideoStatus.PROCESSING},
-                    ":queued":     {"S": VideoStatus.QUEUED},
-                    ":lu":         {"S": locked_until},
-                    ":now":        {"S": updated_at},
-                    ":ua":         {"S": updated_at},
+                    ":queued": {"S": VideoStatus.QUEUED},
+                    ":lu": {"S": locked_until},
+                    ":now": {"S": updated_at},
+                    ":ua": {"S": updated_at},
                 },
             )
             return True
@@ -276,9 +268,7 @@ class VideoRepository:
                 return False
             raise
 
-    async def renew_lease(
-        self, video_key: str, locked_until: str, updated_at: str
-    ) -> None:
+    async def renew_lease(self, video_key: str, locked_until: str, updated_at: str) -> None:
         """Extend the lease for an in-progress job. Called periodically by the worker."""
         await self._dynamo.update_item(
             TableName=self._table,
@@ -287,8 +277,8 @@ class VideoRepository:
             ConditionExpression="#s = :processing",
             ExpressionAttributeNames={"#s": "status"},
             ExpressionAttributeValues={
-                ":lu":         {"S": locked_until},
-                ":ua":         {"S": updated_at},
+                ":lu": {"S": locked_until},
+                ":ua": {"S": updated_at},
                 ":processing": {"S": VideoStatus.PROCESSING},
             },
         )

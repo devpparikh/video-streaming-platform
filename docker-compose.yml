@@ -11,8 +11,8 @@ services:
       DATA_DIR: /data
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      AWS_ENDPOINT_URL: http://localstack:4566
-      AWS_DYNAMODB_ENDPOINT_URL: http://localstack:4566
+      AWS_ENDPOINT_URL: http://aws:4566
+      AWS_DYNAMODB_ENDPOINT_URL: http://aws:4566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_DEFAULT_REGION: us-east-1
@@ -24,8 +24,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      localstack:
-        condition: service_healthy
+      aws-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
       interval: 10s
@@ -54,8 +54,8 @@ services:
       CELERY_CONCURRENCY: ${CELERY_CONCURRENCY:-2}
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      AWS_ENDPOINT_URL: http://localstack:4566
-      AWS_DYNAMODB_ENDPOINT_URL: http://localstack:4566
+      AWS_ENDPOINT_URL: http://aws:4566
+      AWS_DYNAMODB_ENDPOINT_URL: http://aws:4566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_DEFAULT_REGION: us-east-1
@@ -65,8 +65,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      localstack:
-        condition: service_healthy
+      aws-init:
+        condition: service_completed_successfully
 
   frontend:
     build:
@@ -95,33 +95,42 @@ services:
       timeout: 3s
       retries: 10
 
-  localstack:
-    image: localstack/localstack-pro:latest
+  # Local AWS emulator (S3 + DynamoDB) — moto server, the same library the
+  # test suite mocks AWS with. Free, no account or token. State is in-memory
+  # and resets when the container restarts. For real AWS see the README.
+  aws:
+    image: motoserver/moto:5.1.22
+    command: ["-H", "0.0.0.0", "-p", "4566"]
     ports:
       - "4566:4566"
-    environment:
-      # SERVICES omitted -> LocalStack enables all services (lazy-loaded on first use).
-      DEBUG: 0
-      PERSISTENCE: 1
-      # Dev-only: disable LocalStack CORS checks so the Cloud dashboard's
-      # in-browser resource browser can call this instance. Never use this for
-      # anything exposed beyond localhost.
-      DISABLE_CORS_CHECKS: 1
-      # Optional: only needed to attach this container to the LocalStack
-      # Cloud dashboard ("bookmark") or use Pro features. Community S3 works
-      # without it. Set LOCALSTACK_AUTH_TOKEN in your shell/.env to enable.
-      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:-}
-    volumes:
-      - localstack-data:/var/lib/localstack
-      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4566/moto-api/')"]
       interval: 5s
       timeout: 5s
       retries: 10
-      start_period: 20s
+
+  # One-shot: creates the bucket (CORS + versioning) and the DynamoDB table +
+  # GSIs — the same resources as infra/terraform. Idempotent.
+  aws-init:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "scripts/init_aws.py"]
+    env_file:
+      - ./backend/.env
+    environment:
+      AWS_ENDPOINT_URL: http://aws:4566
+      AWS_DYNAMODB_ENDPOINT_URL: http://aws:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+    volumes:
+      - ./backend:/app
+    depends_on:
+      aws:
+        condition: service_healthy
 
 volumes:
   frontend-node-modules:
   redis-data:
-  localstack-data:

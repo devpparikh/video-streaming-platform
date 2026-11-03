@@ -71,12 +71,14 @@ def process_video_file(video_key: str, settings: Settings) -> ProcessingResult:
         s3.download_file(bucket, raw_object_key(video_key), str(raw_path))
 
         result = run_transcode(
-            raw_path, dash_dir,
+            raw_path,
+            dash_dir,
             ffmpeg_path=settings.ffmpeg_path,
             ffprobe_path=settings.ffprobe_path,
         )
         generate_thumbnails(
-            raw_path, thumbs_dir,
+            raw_path,
+            thumbs_dir,
             duration=result.duration_seconds,
             ffmpeg_path=settings.ffmpeg_path,
         )
@@ -97,7 +99,9 @@ def _upload_dir(s3: Any, bucket: str, prefix: str, local_dir: Path, label: str) 
 
     def _upload(path: Path) -> None:
         s3.upload_file(
-            str(path), bucket, f"{prefix}/{path.name}",
+            str(path),
+            bucket,
+            f"{prefix}/{path.name}",
             ExtraArgs={"ContentType": _content_type_for(path.name)},
         )
 

@@ -39,11 +39,11 @@ _SPRITE_COLS = 10
 # The first tier whose bound exceeds the duration wins; videos at or beyond the
 # last bound use _INTERVAL_FALLBACK. Tune freely — finer = bigger sprite.
 _INTERVAL_LADDER: tuple[tuple[float, int], ...] = (
-    (2 * 60, 1),       # < 2 min  → every 1s  (very short: per-second scrubbing)
-    (5 * 60, 2),       # < 5 min  → every 2s
-    (10 * 60, 3),      # < 10 min → every 3s
-    (30 * 60, 5),      # < 30 min → every 5s
-    (60 * 60, 10),     # < 1 hr   → every 10s
+    (2 * 60, 1),  # < 2 min  → every 1s  (very short: per-second scrubbing)
+    (5 * 60, 2),  # < 5 min  → every 2s
+    (10 * 60, 3),  # < 10 min → every 3s
+    (30 * 60, 5),  # < 30 min → every 5s
+    (60 * 60, 10),  # < 1 hr   → every 10s
     (2 * 60 * 60, 20),  # < 2 hr   → every 20s
 )
 _INTERVAL_FALLBACK = 30  # ≥ 2 hr → every 30s
@@ -88,17 +88,20 @@ def _format_ts(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
 
 
-def generate_poster(
-    input_path: Path, out_dir: Path, *, duration: float, ffmpeg_path: str
-) -> str:
+def generate_poster(input_path: Path, out_dir: Path, *, duration: float, ffmpeg_path: str) -> str:
     ts = duration * _POSTER_FRACTION if duration > 0 else 0.0
     _run(
         [
-            ffmpeg_path, "-y",
-            "-ss", f"{ts:.3f}",
-            "-i", str(input_path),
-            "-frames:v", "1",
-            "-vf", f"scale={_POSTER_WIDTH}:-2",
+            ffmpeg_path,
+            "-y",
+            "-ss",
+            f"{ts:.3f}",
+            "-i",
+            str(input_path),
+            "-frames:v",
+            "1",
+            "-vf",
+            f"scale={_POSTER_WIDTH}:-2",
             str(out_dir / POSTER_NAME),
         ],
         "poster",
@@ -137,10 +140,14 @@ def generate_sprite_and_vtt(
     )
     _run(
         [
-            ffmpeg_path, "-y",
-            "-i", str(input_path),
-            "-vf", vf,
-            "-frames:v", "1",
+            ffmpeg_path,
+            "-y",
+            "-i",
+            str(input_path),
+            "-vf",
+            vf,
+            "-frames:v",
+            "1",
             str(out_dir / SPRITE_NAME),
         ],
         "sprite",
@@ -168,11 +175,13 @@ def generate_thumbnails(
 ) -> ThumbnailResult:
     """Produce poster + sprite + VTT for a video. Output dir is created."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    poster = generate_poster(
-        input_path, out_dir, duration=duration, ffmpeg_path=ffmpeg_path
-    )
+    poster = generate_poster(input_path, out_dir, duration=duration, ffmpeg_path=ffmpeg_path)
     sprite, vtt = generate_sprite_and_vtt(
         input_path, out_dir, duration=duration, ffmpeg_path=ffmpeg_path
     )
-    logger.info("generated thumbnails (%d-thumb sprite) for %s", _sprite_grid(duration)[1], input_path.name)
+    logger.info(
+        "generated thumbnails (%d-thumb sprite) for %s",
+        _sprite_grid(duration)[1],
+        input_path.name,
+    )
     return ThumbnailResult(poster_name=poster, sprite_name=sprite, vtt_name=vtt)

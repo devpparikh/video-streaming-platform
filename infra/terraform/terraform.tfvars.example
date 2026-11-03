@@ -1,9 +1,6 @@
 # Copy to terraform.tfvars and adjust as needed.
-# Defaults already target LocalStack on localhost, so this file is optional.
 
 aws_region           = "us-east-1"
-videos_bucket_name   = "videos"
+videos_bucket_name   = "videos" # S3 bucket names are global: pick a unique one
+videos_table_name    = "video-metadata"
 cors_allowed_origins = ["http://localhost:5173"]
-
-# Use http://localstack:4566 if you run tflocal from inside the compose network.
-localstack_endpoint = "http://localhost:4566"

@@ -51,9 +51,7 @@ async def open_s3_clients(
     """Open long-lived (server, presign) S3 clients on the given exit stack."""
     session = get_session()
     settings = get_settings()
-    server = await stack.enter_async_context(
-        _client(session, settings, settings.aws_endpoint_url)
-    )
+    server = await stack.enter_async_context(_client(session, settings, settings.aws_endpoint_url))
     presign = await stack.enter_async_context(
         _client(
             session,
