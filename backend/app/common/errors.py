@@ -8,8 +8,15 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # S3 error codes → HTTP status + client-safe message
 _S3_ERROR_MAP: dict[str, tuple[int, str]] = {
-    "InvalidPart": (422, "One or more ETags do not match the uploaded parts — re-upload the affected parts and retry"),
-    "NoSuchUpload": (404, "Upload session not found — it may have expired or already been completed"),
+    "InvalidPart": (
+        422,
+        "One or more ETags do not match the uploaded parts — "
+        "re-upload the affected parts and retry",
+    ),
+    "NoSuchUpload": (
+        404,
+        "Upload session not found — it may have expired or already been completed",
+    ),
     "NoSuchKey": (404, "Resource not found"),
     "InvalidRange": (416, "Requested range not satisfiable"),
     "AccessDenied": (403, "Access denied"),
@@ -42,9 +49,7 @@ async def _validation_exception_handler(
     return _envelope(422, _format_validation_errors(exc))
 
 
-async def _http_exception_handler(
-    request: Request, exc: StarletteHTTPException
-) -> JSONResponse:
+async def _http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     detail = exc.detail if isinstance(exc.detail, str) else "Request failed"
     return _envelope(exc.status_code, detail)
 

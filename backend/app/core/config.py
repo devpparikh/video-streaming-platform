@@ -42,14 +42,12 @@ class Settings(BaseSettings):
     # Upload limits / multipart tuning.
     max_upload_bytes: int = 5 * 1024**3  # 5 GiB
     multipart_part_size: int = 16 * 1024**2  # 16 MiB
-    allowed_upload_content_types: str = (
-        "video/mp4,video/quicktime,video/x-matroska,video/webm"
-    )
+    allowed_upload_content_types: str = "video/mp4,video/quicktime,video/x-matroska,video/webm"
     # Predefined category catalog (JSON array of slugs). Single source of truth
     # for upload validation and the categories endpoint. Override via env.
     categories_file: Path = Path("app/data/categories.json")
     presign_expiry_seconds: int = 900  # 15 min — presigned URL lifetime
-    worker_lease_seconds: int = 600    # 10 min — job lease duration
+    worker_lease_seconds: int = 600  # 10 min — job lease duration
     worker_lease_renew_interval: int = 120  # 2 min — how often worker renews lease
 
     # Transcoding (ffmpeg). Paths default to binaries on PATH.
@@ -64,18 +62,12 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        return [
-            origin.strip()
-            for origin in self.backend_cors_origins.split(",")
-            if origin.strip()
-        ]
+        return [origin.strip() for origin in self.backend_cors_origins.split(",") if origin.strip()]
 
     @property
     def allowed_content_types(self) -> set[str]:
         return {
-            item.strip()
-            for item in self.allowed_upload_content_types.split(",")
-            if item.strip()
+            item.strip() for item in self.allowed_upload_content_types.split(",") if item.strip()
         }
 
 
@@ -85,9 +77,7 @@ def get_settings() -> Settings:
         return Settings()  # type: ignore[call-arg]  # values come from env/.env
     except ValidationError as exc:
         missing = sorted(
-            str(err["loc"][0]).upper()
-            for err in exc.errors()
-            if err["type"] == "missing"
+            str(err["loc"][0]).upper() for err in exc.errors() if err["type"] == "missing"
         )
         if missing:
             raise RuntimeError(

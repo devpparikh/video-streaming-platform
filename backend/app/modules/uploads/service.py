@@ -9,7 +9,6 @@ from app.core.identifiers import generate_video_key
 from app.modules.uploads.schemas import (
     CompleteUploadRequest,
     CompleteUploadResponse,
-    CompletePart,
     InitiateUploadRequest,
     InitiateUploadResponse,
     ListPartsResponse,
@@ -72,9 +71,7 @@ class UploadService:
                 "File exceeds the maximum allowed upload size",
             )
 
-    async def initiate_upload(
-        self, request: InitiateUploadRequest
-    ) -> InitiateUploadResponse:
+    async def initiate_upload(self, request: InitiateUploadRequest) -> InitiateUploadResponse:
         self._validate(request)
         video_key = generate_video_key()
         part_size = compute_part_size(request.size, self._settings.multipart_part_size)
@@ -110,9 +107,7 @@ class UploadService:
             part_count=part_count,
         )
 
-    async def sign_parts(
-        self, video_key: str, request: SignPartsRequest
-    ) -> SignPartsResponse:
+    async def sign_parts(self, video_key: str, request: SignPartsRequest) -> SignPartsResponse:
         """Presign PUT URLs for the given part numbers of an in-flight upload."""
         key = raw_object_key(video_key)
         expires_in = self._settings.presign_expiry_seconds
@@ -202,6 +197,7 @@ class UploadService:
         )
 
         from app.workers.tasks import process_video
+
         process_video.delay(video_key)
 
         return CompleteUploadResponse(video_key=video_key)

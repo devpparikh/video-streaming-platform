@@ -45,20 +45,14 @@ class VideoStreamService:
     async def stream_dash_file(
         self, video_key: str, filename: str, range_header: str | None
     ) -> StreamingResponse:
-        return await self._stream(
-            dash_object_key(video_key, filename), filename, range_header
-        )
+        return await self._stream(dash_object_key(video_key, filename), filename, range_header)
 
     async def stream_asset(
         self, video_key: str, filename: str, range_header: str | None
     ) -> StreamingResponse:
-        return await self._stream(
-            asset_object_key(video_key, filename), filename, range_header
-        )
+        return await self._stream(asset_object_key(video_key, filename), filename, range_header)
 
-    async def _stream(
-        self, key: str, filename: str, range_header: str | None
-    ) -> StreamingResponse:
+    async def _stream(self, key: str, filename: str, range_header: str | None) -> StreamingResponse:
         params: dict[str, Any] = {"Bucket": self._settings.s3_bucket, "Key": key}
         if range_header:
             params["Range"] = range_header

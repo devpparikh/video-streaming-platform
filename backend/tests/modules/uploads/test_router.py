@@ -89,9 +89,7 @@ async def test_create_upload_starts_multipart(
 async def test_create_upload_rejects_unsupported_type(
     aws_override: AioBaseClient, client: AsyncClient
 ) -> None:
-    resp = await client.post(
-        "/api/uploads", json=_payload(content_type="application/zip")
-    )
+    resp = await client.post("/api/uploads", json=_payload(content_type="application/zip"))
     assert resp.status_code == 415
     assert resp.json()["success"] is False
 

@@ -7,8 +7,8 @@ from celery.exceptions import SoftTimeLimitExceeded
 from app.core.config import get_settings
 from app.repositories.video_repository import VideoStatus
 from app.repositories.video_repository_sync import SyncVideoRepository
-from app.workers.processing import process_video_file
 from app.workers.celery_app import celery_app
+from app.workers.processing import process_video_file
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,13 @@ def process_video(self, video_key: str) -> None:
     stop_event = threading.Event()
     renewer = threading.Thread(
         target=_run_lease_renewer,
-        args=(repo, video_key, settings.worker_lease_seconds, settings.worker_lease_renew_interval, stop_event),
+        args=(
+            repo,
+            video_key,
+            settings.worker_lease_seconds,
+            settings.worker_lease_renew_interval,
+            stop_event,
+        ),
         daemon=True,
     )
     renewer.start()
@@ -59,7 +65,8 @@ def process_video(self, video_key: str) -> None:
         stop_event.set()
         renewer.join()
         repo.mark_ready(
-            video_key, updated_at=_now(),
+            video_key,
+            updated_at=_now(),
             resolutions=result.resolutions,
             duration_seconds=result.duration_seconds,
         )
@@ -68,7 +75,9 @@ def process_video(self, video_key: str) -> None:
         stop_event.set()
         logger.warning("video %s hit soft time limit", video_key)
         repo.update_status(
-            video_key, VideoStatus.FAILED, updated_at=_now(),
+            video_key,
+            VideoStatus.FAILED,
+            updated_at=_now(),
             error_message="processing timed out",
         )
 
@@ -78,12 +87,14 @@ def process_video(self, video_key: str) -> None:
         if self.request.retries >= self.max_retries:
             logger.error("video %s failed after %d retries: %s", video_key, self.max_retries, exc)
             repo.update_status(
-                video_key, VideoStatus.FAILED, updated_at=_now(),
+                video_key,
+                VideoStatus.FAILED,
+                updated_at=_now(),
                 error_message=str(exc),
             )
             return
         repo.release_to_queued(video_key, updated_at=_now())
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
     finally:
         stop_event.set()
