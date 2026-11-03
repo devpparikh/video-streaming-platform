@@ -6,13 +6,21 @@ transcode them into a multi-resolution adaptive ladder, and stream them back as
 MPEG-DASH in the browser — Netflix style.
 
 <p>
+  <a href="https://github.com/devpparikh/video-streaming-platform/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/devpparikh/video-streaming-platform/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12+-3776AB?logo=python&logoColor=white">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white">
   <img alt="Celery" src="https://img.shields.io/badge/Celery-workers-37814A?logo=celery&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
+
+![Browse page with the transcoded library](assets/screenshots/browse.jpg)
+
+| Upload in progress | Adaptive playback |
+| --- | --- |
+| ![A 237 MB upload streaming parts straight to S3](assets/screenshots/dashboard-upload.jpg) | ![The player streaming the 1080p rung with dash.js](assets/screenshots/player.jpg) |
 
 ## Highlights
 
@@ -29,9 +37,9 @@ MPEG-DASH in the browser — Netflix style.
   to bandwidth.
 - **Catalog with soft delete.** Cursor-paginated listing by category or full
   feed (DynamoDB GSIs), plus hide / restore / hard-delete.
-- **Local-first, cloud-ready.** Runs end-to-end on LocalStack (S3 + DynamoDB)
-  with one command; switch to real AWS by changing environment variables only —
-  no code changes.
+- **Local-first, cloud-ready.** Runs end-to-end on a local AWS emulator
+  (S3 + DynamoDB) with one command and no accounts or tokens; switch to real
+  AWS by changing environment variables only — no code changes.
 
 ## Architecture
 
@@ -53,28 +61,25 @@ MPEG-DASH in the browser — Netflix style.
 | `backend`    | FastAPI (Python 3.12+)     | Presigned multipart uploads, catalog API, DASH streaming |
 | `worker`     | Celery + ffmpeg            | Transcode raw video → multi-resolution DASH             |
 | `redis`      | Redis 7                    | Celery broker + result backend                          |
-| `localstack` | LocalStack                 | S3 bucket + DynamoDB table for local dev                |
+| `aws`        | moto server                | Local S3 + DynamoDB emulator (in-memory)                |
+| `aws-init`   | boto3 script (one-shot)    | Creates the bucket + table on startup, then exits       |
 | `frontend`   | React 19 + Vite + dash.js  | Upload dashboard, catalog, player                       |
 
 ## Quick start
 
-Runs the whole stack — frontend, API, worker, Redis, and LocalStack — with one
-command.
+Runs the whole stack — frontend, API, worker, Redis, and a local AWS emulator —
+with one command. No AWS account, emulator token, or Terraform needed.
 
 **Prerequisites:** Docker + Docker Compose.
 
 ```bash
 # 1. Create the environment files from the checked-in templates
-cp .env.example .env                     # root: LocalStack token (optional), worker concurrency
+cp .env.example .env                     # root: worker concurrency (optional)
 cp backend/.env.example backend/.env     # backend + worker config
 cp frontend/.env.example frontend/.env   # frontend API base URL
 
-# 2. Start everything
+# 2. Start everything (the aws-init service creates the bucket and table)
 docker compose up --build
-
-# 3. Provision the S3 bucket + DynamoDB table in LocalStack (first run only)
-cd infra/terraform
-tflocal init && tflocal apply -auto-approve
 ```
 
 Then open:
@@ -85,8 +90,9 @@ Then open:
 | http://localhost:8000/api/health      | Backend health check       |
 | http://localhost:8000/docs            | Interactive API docs        |
 
-> The root `.env` only needs `LOCALSTACK_AUTH_TOKEN` if you use LocalStack Pro
-> features or the Cloud dashboard; community S3/DynamoDB work without it.
+> The emulator ([moto server](https://docs.getmoto.org/en/latest/docs/server_mode.html),
+> the same library the backend tests mock AWS with) keeps state in memory, so
+> the library resets when the `aws` container restarts.
 
 ## Local development (without full compose)
 
@@ -94,8 +100,8 @@ Run the dependencies in containers and the app processes on the host for faster
 reloads:
 
 ```bash
-# Start just Redis + LocalStack
-docker compose up redis localstack -d
+# Start Redis + the AWS emulator, and provision the bucket + table
+docker compose up redis aws aws-init -d
 
 # Backend API (in backend/)
 uv sync
@@ -136,7 +142,7 @@ video-streaming-platform/
 │   └── app/{clients,common,core,modules,repositories,workers}
 ├── frontend/           # React + Vite + TypeScript client            → frontend/README.md
 │   └── src/{api,app,components,hooks,lib,pages,styles}
-├── infra/terraform/    # S3 bucket + DynamoDB table (tflocal/AWS)    → infra/terraform/README.md
+├── infra/terraform/    # S3 bucket + DynamoDB table for real AWS      → infra/terraform/README.md
 ├── docker-compose.yml  # Full local stack
 └── .env.example        # Root env template (compose substitution)
 ```
@@ -144,12 +150,16 @@ video-streaming-platform/
 ## Testing
 
 ```bash
-# Backend (pytest + httpx, S3/DynamoDB mocked in-memory)
-cd backend && pytest --cov=app
+# Backend (pytest + httpx, S3/DynamoDB mocked in-memory with moto)
+cd backend && uv run pytest --cov=app
+uv run ruff check . && uv run ruff format --check .
 
 # Frontend (Vitest + React Testing Library)
 cd frontend && pnpm test
+pnpm lint && pnpm typecheck && pnpm build
 ```
+
+[CI](.github/workflows/ci.yml) runs all of the above on every pull request.
 
 ## Deploying to real AWS
 
@@ -165,8 +175,9 @@ AWS_ACCESS_KEY_ID=<real-key>
 AWS_SECRET_ACCESS_KEY=<real-secret>
 ```
 
-Provision the bucket and table with the same Terraform under `infra/terraform/`
-(run `terraform` instead of `tflocal`, with AWS credentials configured).
+Provision the bucket and table with the Terraform under `infra/terraform/`
+(`terraform init && terraform apply`, with AWS credentials configured). It
+creates the same resources `backend/scripts/init_aws.py` creates locally.
 
 ## Documentation
 
@@ -179,3 +190,7 @@ Provision the bucket and table with the same Terraform under `infra/terraform/`
 This is an MVP focused on the upload → transcode → stream path. It intentionally
 has no authentication or user accounts, DASH only (no HLS/DRM), and targets a
 single region. All videos are public once `ready`.
+
+## License
+
+[MIT](LICENSE)

@@ -1,13 +1,7 @@
 variable "aws_region" {
-  description = "AWS region (LocalStack ignores this but the provider requires it)."
+  description = "AWS region to create the resources in."
   type        = string
   default     = "us-east-1"
-}
-
-variable "localstack_endpoint" {
-  description = "LocalStack edge endpoint, exposed as an output for apps. tflocal manages the provider endpoints itself."
-  type        = string
-  default     = "http://localhost:4566"
 }
 
 variable "videos_bucket_name" {

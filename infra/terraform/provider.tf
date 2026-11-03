@@ -1,10 +1,9 @@
-# Minimal AWS provider. `tflocal` generates an override file at apply time
-# (localstack_providers_override.tf) that injects the LocalStack endpoints,
-# dummy credentials, and skip-validation flags. Do NOT hardcode endpoints here.
+# Minimal AWS provider. Credentials and endpoints come from the standard AWS
+# configuration. Do NOT hardcode endpoints here; `tflocal` injects them when
+# targeting a local emulator.
 #
-# s3_use_path_style is set explicitly: without it the provider uses
-# virtual-hosted-style URLs (videos.s3.localhost.localstack.cloud) whose
-# subdomain fails DNS resolution on Windows. Path-style -> http://host:4566/videos.
+# s3_use_path_style keeps emulator URLs resolvable (http://host:4566/videos);
+# real S3 accepts path-style requests too.
 provider "aws" {
   region            = var.aws_region
   s3_use_path_style = true

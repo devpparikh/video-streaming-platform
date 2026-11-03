@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"
 
-    # AWS / S3. The endpoint URLs below default to LocalStack for local dev.
+    # AWS / S3. The endpoint URLs below default to the local emulator (:4566).
     #
     # PRODUCTION (real AWS): set both endpoint URLs to "" (empty) so boto3 uses
     # the real regional AWS endpoints, set S3_USE_PATH_STYLE="false" (real S3
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # bucket. Nothing else changes — the app code is endpoint-agnostic.
     #
     # aws_endpoint_url is the host the SERVER reaches S3 on (e.g.
-    # http://localstack:4566 inside compose); aws_public_endpoint_url is the
+    # http://aws:4566 inside compose); aws_public_endpoint_url is the
     # browser-reachable host that presigned URLs are signed against. On real
     # AWS leave both empty and they collapse to the real endpoint.
     aws_endpoint_url: str = "http://localhost:4566"
